@@ -5,40 +5,31 @@
    ```solidity
    pragma solidity ^0.6.0;
    pragma experimental ABIEncoderV2;
-   
-   contract PersonDID {
-       //公开管理员地址
-       address public admins;
-       //设置只有管理员可修改
-        modifier OnlyAdmin(){
-            require(msg.sender == admins);
-            _;
-        }
         
        struct Person {
            uint8 id;
            uint8 age;
            string name;
-           //添加个人简介
-           string synopsis;
        }
        
        event AddPerson(uint8 id, uint8 age, string name, uint timestamp);
-       //设置查看个人简介事件
-       event Show(uint8 id, uint time);
        //设置管理员设置个人简介事件
        event SetPersonSynopsis(uint8 id,uint time);
        
-       Person admin;
+       //设置管理员地址
+       address admin;
        Person[] persons;
+       
        mapping(address => Person) public PersonInfo;
+       //设置授权读取个人权限映射（地址=>地址=>次数）
+       mapping(address => mapping(address => uint8)) synopsisInfo;
        mapping(address=> bool) public isPersonExsist;
        
-       constructor (address ip, uint8 id, string memory name, uint8 age ,string memory synopsis ) public {
-           //将部署时输入的个人简介设为空
-           synopsis = "";
-           admin = Person(id, age, name , synopsis);
-           Person memory p = Person(id, age, name ,synopsis);
+       mapping(address => mapping (address => uint8)) synopsisCount;
+       mapping(address => string) synopsisMain; //Person's synopsis
+       
+       constructor (address ip, uint8 id, string memory name, uint8 age) public {
+           Person memory p = Person(id, age, name);
            persons.push(p);
            PersonInfo[msg.sender] = p;
            isPersonExsist[msg.sender] = true;
@@ -68,30 +59,43 @@
            return PersonInfo[ip].age;
        }
        
-       //设置个人简介方法，仅管理员可以修改
-       function setPersonSynopsis(address ip,uint8 id,string memory synopsis) public OnlyAdmin {
-           Person memory p = PersonInfo[ip];
-           p.synopsis = synopsis;
-           //触发事件
-           emit SetPersonSynopsis(id , now);
-       }
+       function setPersonSynopsis(address ip,uint8 id,string memory _synopsis) public {
+       //判断是不是本人或者管理员
+        require( ip == msg.sender || admin == msg.sender , "only yourself or admin can add!");
+        //设置个人简介
+        synopsisMain[ip] = _synopsis;
+        //触发事件
+        emit SetPersonSynopsis(id , now);
+    }
        
-       //设置变量
-       uint8 account = 0;
-       //设置展示个人简介方法
-       function show(address ip,uint8 id) public returns(bool) {
-           //判断查看次数
-           if(account < 5){
-               Person memory p = PersonInfo[ip];
-               p.synopsis;
-               //将查看次数累计
-               account++;
-               //触发查看简介事件
-               emit Show(id , now);
-               return true;
-           }
-           return false;
-       }
+       //设置授权事件
+       function show(address ip,uint8 _counts , uint8 _type) public {
+       //判断地址和次数是否为空
+        require( ip != address(0) || _counts != 0 );
+        //判断输入值是否符合要求
+        require( _type == 0 || _type == 1 , "_type must be 0 or 1" );
+        //根据选择给予权限
+        if(_type == 0){
+            synopsisInfo[msg.sender][ip] = _counts;
+        }else if (_type == 1){
+            synopsisCount[msg.sender][ip] = _counts;
+        }
+    }
+       
+       
+       //获取个人简介
+       function getSynopsis(address ip,uint8 id)public view returns(bool){
+       //判断账户是否存在
+        Person storage p = PersonInfo[ip];
+        require( p.id == id , "This account is not exsist!");
+        //判断是否有授权
+        if(synopsisCount[msg.sender][ip] > 0){
+            synopsisMain[ip];
+          return true;
+        }
+        return false;
+    }
+    
        
    }
    ```
